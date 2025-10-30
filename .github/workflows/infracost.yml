@@ -1,0 +1,312 @@
+name: Infracost
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+env:
+  TF_ROOT: .
+
+jobs:
+  infracost-aws:
+    name: AWS Cost Estimation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout base branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      - name: Generate Infracost cost estimate baseline (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost breakdown --path=aws \
+            --usage-file=aws/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-aws-base.json
+
+      - name: Checkout PR branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Generate AWS Cost Breakdown
+        run: |
+          echo "::group::💰 AWS Infrastructure Cost Breakdown"
+          infracost breakdown --path=aws \
+            --usage-file=aws/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate AWS Cost Diff (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::group::📊 AWS Cost Diff"
+          infracost diff --path=aws \
+            --usage-file=aws/infracost-usage.yml \
+            --compare-to=/tmp/infracost-aws-base.json \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate AWS JSON output
+        run: |
+          infracost breakdown --path=aws \
+            --usage-file=aws/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-aws.json
+
+      - name: Upload AWS cost estimate
+        uses: actions/upload-artifact@v4
+        with:
+          name: infracost-aws
+          path: /tmp/infracost-aws.json
+          retention-days: 30
+
+  infracost-azure:
+    name: Azure Cost Estimation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout base branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      - name: Generate Infracost cost estimate baseline (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost breakdown --path=azure \
+            --usage-file=azure/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-azure-base.json
+
+      - name: Checkout PR branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Generate Azure Cost Breakdown
+        run: |
+          echo "::group::💰 Azure Infrastructure Cost Breakdown"
+          infracost breakdown --path=azure \
+            --usage-file=azure/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate Azure Cost Diff (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::group::📊 Azure Cost Diff"
+          infracost diff --path=azure \
+            --usage-file=azure/infracost-usage.yml \
+            --compare-to=/tmp/infracost-azure-base.json \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate Azure JSON output
+        run: |
+          infracost breakdown --path=azure \
+            --usage-file=azure/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-azure.json
+
+      - name: Upload Azure cost estimate
+        uses: actions/upload-artifact@v4
+        with:
+          name: infracost-azure
+          path: /tmp/infracost-azure.json
+          retention-days: 30
+
+  infracost-google:
+    name: Google Cloud Cost Estimation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Checkout base branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: '${{ github.event.pull_request.base.ref }}'
+
+      - name: Generate Infracost cost estimate baseline (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          infracost breakdown --path=google \
+            --usage-file=google/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-google-base.json
+
+      - name: Checkout PR branch
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+
+      - name: Generate Google Cloud Cost Breakdown
+        run: |
+          echo "::group::💰 Google Cloud Infrastructure Cost Breakdown"
+          infracost breakdown --path=google \
+            --usage-file=google/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate Google Cloud Cost Diff (PR only)
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "::group::📊 Google Cloud Cost Diff"
+          infracost diff --path=google \
+            --usage-file=google/infracost-usage.yml \
+            --compare-to=/tmp/infracost-google-base.json \
+            --format=table
+          echo "::endgroup::"
+
+      - name: Generate Google Cloud JSON output
+        run: |
+          infracost breakdown --path=google \
+            --usage-file=google/infracost-usage.yml \
+            --format=json \
+            --out-file=/tmp/infracost-google.json
+
+      - name: Upload Google Cloud cost estimate
+        uses: actions/upload-artifact@v4
+        with:
+          name: infracost-google
+          path: /tmp/infracost-google.json
+          retention-days: 30
+
+  infracost-comment:
+    name: Post Infracost PR Comment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: [infracost-aws, infracost-azure, infracost-google]
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Download AWS cost estimate
+        uses: actions/download-artifact@v4
+        with:
+          name: infracost-aws
+          path: /tmp/
+
+      - name: Download Azure cost estimate
+        uses: actions/download-artifact@v4
+        with:
+          name: infracost-azure
+          path: /tmp/
+
+      - name: Download Google Cloud cost estimate
+        uses: actions/download-artifact@v4
+        with:
+          name: infracost-google
+          path: /tmp/
+
+      - name: Post unified Infracost comment
+        run: |
+          infracost comment github --path=/tmp/infracost-*.json \
+            --repo=$GITHUB_REPOSITORY \
+            --github-token=${{ secrets.GITHUB_TOKEN }} \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --behavior=update
+
+  infracost-summary:
+    name: Cost Estimation Summary
+    runs-on: ubuntu-latest
+    needs: [infracost-aws, infracost-azure, infracost-google]
+    if: always()
+
+    steps:
+      - name: Download cost estimates
+        uses: actions/download-artifact@v4
+        with:
+          pattern: infracost-*
+          path: /tmp/
+          merge-multiple: true
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate combined summary
+        run: |
+          echo "::group::📋 Multi-Cloud Cost Summary"
+          echo "==================================="
+          echo "TOTAL INFRASTRUCTURE COST SUMMARY"
+          echo "==================================="
+          echo ""
+          
+          if [ -f /tmp/infracost-aws.json ]; then
+            echo "☁️  AWS:"
+            infracost output --path=/tmp/infracost-aws.json --format=table --show-skipped
+            echo ""
+          fi
+          
+          if [ -f /tmp/infracost-azure.json ]; then
+            echo "☁️  Azure:"
+            infracost output --path=/tmp/infracost-azure.json --format=table --show-skipped
+            echo ""
+          fi
+          
+          if [ -f /tmp/infracost-google.json ]; then
+            echo "☁️  Google Cloud:"
+            infracost output --path=/tmp/infracost-google.json --format=table --show-skipped
+            echo ""
+          fi
+          
+          echo "==================================="
+          echo "::endgroup::"
+
+      - name: Check job status
+        run: |
+          echo "AWS Cost Estimation: ${{ needs.infracost-aws.result }}"
+          echo "Azure Cost Estimation: ${{ needs.infracost-azure.result }}"
+          echo "Google Cloud Cost Estimation: ${{ needs.infracost-google.result }}"
