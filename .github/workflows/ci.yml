@@ -95,24 +95,42 @@ jobs:
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
 
-      - name: Generate Infracost diff (AWS)
+      - name: Generate Infracost breakdown (AWS)
         run: |
+          echo "::group::AWS Cost Breakdown"
+          infracost breakdown --path=aws \
+            --usage-file=aws/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+          
           infracost breakdown --path=aws \
             --usage-file=aws/infracost-usage.yml \
             --format=json \
             --out-file=/tmp/infracost-aws.json
         continue-on-error: true
 
-      - name: Generate Infracost diff (Azure)
+      - name: Generate Infracost breakdown (Azure)
         run: |
+          echo "::group::Azure Cost Breakdown"
+          infracost breakdown --path=azure \
+            --usage-file=azure/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+          
           infracost breakdown --path=azure \
             --usage-file=azure/infracost-usage.yml \
             --format=json \
             --out-file=/tmp/infracost-azure.json
         continue-on-error: true
 
-      - name: Generate Infracost diff (Google)
+      - name: Generate Infracost breakdown (Google)
         run: |
+          echo "::group::Google Cloud Cost Breakdown"
+          infracost breakdown --path=google \
+            --usage-file=google/infracost-usage.yml \
+            --format=table
+          echo "::endgroup::"
+          
           infracost breakdown --path=google \
             --usage-file=google/infracost-usage.yml \
             --format=json \
@@ -120,6 +138,7 @@ jobs:
         continue-on-error: true
 
       - name: Post Infracost comment
+        if: github.event_name == 'pull_request'
         run: |
           infracost comment github --path=/tmp/infracost-*.json \
             --repo=$GITHUB_REPOSITORY \
