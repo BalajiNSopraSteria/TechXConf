@@ -3,9 +3,60 @@
 # `infracost breakdown --usage-file infracost-usage.yml [other flags]`
 # See https://infracost.io/usage-file/ for docs
 version: 0.1
+
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   google_cloudfunctions_function:
     request_duration_ms: 350 # Average duration of each request in milliseconds.
     monthly_function_invocations: 20000000 # Monthly number of function invocations.
     monthly_outbound_data_gb: 150 # Monthly data transferred from the function out to somewhere else in GB.
+
+# Resource-specific usage for AI/ML workloads
+resource_usage:
+  # Cloud Storage for ML artifacts
+  google_storage_bucket.ml_artifacts:
+    storage_gb: 4000 # 4 TB of ML datasets and models
+    monthly_class_a_operations: 8000000 # Write operations
+    monthly_class_b_operations: 40000000 # Read operations
+    monthly_data_retrieval_gb: 1000
+
+  # GPU Compute Instance (not running 24/7)
+  google_compute_instance.ml_gpu_instance:
+    operating_system: linux
+    monthly_hrs: 450 # ~15 hours per day for training
+
+  # Cloud TPU for training
+  google_tpu_node.ml_tpu:
+    monthly_hrs: 200 # Used periodically for large model training
+
+  # Vertex AI Notebook
+  google_notebooks_instance.ml_notebook:
+    monthly_hrs: 730 # Full uptime for development
+
+  # GKE cluster for inference
+  google_container_cluster.ml_gke:
+    nodes: 3
+    monthly_hrs: 730 # Full uptime
+
+  # GPU node pool
+  google_container_node_pool.ml_gpu_nodes:
+    nodes: 2
+    monthly_hrs: 500 # Scaled during peak inference
+
+  # Cloud Run for inference
+  google_cloud_run_service.ml_inference:
+    monthly_requests: 30000000 # 30M inference requests
+    request_duration_ms: 500
+    monthly_cpu_hours: 15000
+    monthly_memory_gb_hours: 30000
+
+  # BigQuery for ML analytics
+  google_bigquery_dataset.ml_analytics:
+    monthly_queries: 1000
+    monthly_queried_data_tb: 5 # 5 TB queried per month
+    storage_tb: 2 # 2 TB stored
+
+  # Artifact Registry
+  google_artifact_registry_repository.ml_containers:
+    storage_gb: 400 # Container images storage
+    monthly_egress_data_transfer_gb: 100

@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - develop
+      - develop-ai
   pull_request:
     branches:
       - main
       - develop
+      - develop-ai
   workflow_dispatch:
 
 env:

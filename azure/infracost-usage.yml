@@ -3,9 +3,49 @@
 # `infracost breakdown --usage-file infracost-usage.yml [other flags]`
 # See https://infracost.io/usage-file/ for docs
 version: 0.1
+
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   azurerm_linux_function_app:
     monthly_executions: 20000000 # Monthly executions to the function. Only applicable for Consumption plan.
     execution_duration_ms: 350 # Average duration of each execution in milliseconds. Only applicable for Consumption plan.
     memory_mb: 1024 # Average amount of memory consumed by function in MB. Only applicable for Consumption plan.
+
+# Resource-specific usage for AI/ML workloads
+resource_usage:
+  # Azure Machine Learning Workspace
+  azurerm_machine_learning_workspace.ml_workspace:
+    monthly_training_hours: 500 # Training compute hours per month
+    
+  # GPU VM for ML training (not running 24/7)
+  azurerm_linux_virtual_machine.ml_gpu_vm:
+    operating_system: linux
+    monthly_hrs: 400 # ~13 hours per day for training
+
+  # AKS cluster for ML inference
+  azurerm_kubernetes_cluster.ml_aks:
+    nodes: 2
+    monthly_hrs: 730 # Full uptime for inference
+
+  # GPU node pool usage
+  azurerm_kubernetes_cluster_node_pool.ml_gpu_nodes:
+    nodes: 2
+    monthly_hrs: 500 # Scaled up during training periods
+
+  # Cognitive Services API calls
+  azurerm_cognitive_account.cognitive_services:
+    monthly_api_calls: 10000000 # 10M API calls per month
+
+  # ML Storage Account
+  azurerm_storage_account.ml_storage:
+    storage_gb: 3000 # 3 TB of ML datasets
+    monthly_tier_1_requests: 5000000 # Write operations
+    monthly_tier_2_requests: 25000000 # Read operations
+    
+  # Container Instances for inference
+  azurerm_container_group.ml_inference:
+    monthly_hrs: 730 # Full uptime
+    
+  # Databricks workspace
+  azurerm_databricks_workspace.ml_databricks:
+    monthly_dbu_hours: 2000 # Databricks Unit hours for analytics
