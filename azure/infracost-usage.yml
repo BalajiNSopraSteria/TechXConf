@@ -4,48 +4,126 @@
 # See https://infracost.io/usage-file/ for docs
 version: 0.1
 
+# AI RESEARCH PROJECT - $250K Monthly Budget
+# High-volume AI/ML workload usage patterns for Azure
+
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   azurerm_linux_function_app:
-    monthly_executions: 20000000 # Monthly executions to the function. Only applicable for Consumption plan.
-    execution_duration_ms: 350 # Average duration of each execution in milliseconds. Only applicable for Consumption plan.
-    memory_mb: 1024 # Average amount of memory consumed by function in MB. Only applicable for Consumption plan.
+    monthly_executions: 20000000
+    execution_duration_ms: 350
+    memory_mb: 1024
 
-# Resource-specific usage for AI/ML workloads
+  # A100 GPU VMs - ND series (20 instances)
+  azurerm_linux_virtual_machine.ml_gpu_cluster_a100[*]:
+    operating_system: linux
+    monthly_hrs: 650 # ~21.5 hours/day for intensive research
+
+  # NC A100 VMs (30 instances)
+  azurerm_linux_virtual_machine.ml_gpu_cluster_nc[*]:
+    operating_system: linux
+    monthly_hrs: 600 # ~20 hours/day
+
+# Resource-specific usage
 resource_usage:
   # Azure Machine Learning Workspace
   azurerm_machine_learning_workspace.ml_workspace:
-    monthly_training_hours: 500 # Training compute hours per month
-    
-  # GPU VM for ML training (not running 24/7)
+    monthly_training_hours: 15000 # Extensive training hours
+
+  # Original GPU VM
   azurerm_linux_virtual_machine.ml_gpu_vm:
     operating_system: linux
-    monthly_hrs: 400 # ~13 hours per day for training
+    monthly_hrs: 600
 
-  # AKS cluster for ML inference
+  # AML GPU Compute Cluster (scaled)
+  azurerm_machine_learning_compute_cluster.aml_gpu_cluster:
+    average_nodes: 35 # Average between min (10) and max (50)
+    monthly_hrs: 700 # High utilization for research
+
+  # AML CPU Compute Cluster
+  azurerm_machine_learning_compute_cluster.aml_cpu_cluster:
+    average_nodes: 60 # Average between min (20) and max (100)
+    monthly_hrs: 650
+
+  # Original AKS cluster
   azurerm_kubernetes_cluster.ml_aks:
     nodes: 2
-    monthly_hrs: 730 # Full uptime for inference
+    monthly_hrs: 730
 
-  # GPU node pool usage
+  # Original GPU node pool
   azurerm_kubernetes_cluster_node_pool.ml_gpu_nodes:
     nodes: 2
-    monthly_hrs: 500 # Scaled up during training periods
+    monthly_hrs: 600
 
-  # Cognitive Services API calls
+  # Research AKS cluster (scaled)
+  azurerm_kubernetes_cluster.ml_aks_research:
+    nodes: 5
+    monthly_hrs: 730
+
+  # Large GPU node pool for research AKS
+  azurerm_kubernetes_cluster_node_pool.ml_aks_gpu_large:
+    nodes: 25
+    monthly_hrs: 730 # Full uptime for inference
+
+  # Cognitive Services
   azurerm_cognitive_account.cognitive_services:
-    monthly_api_calls: 10000000 # 10M API calls per month
+    monthly_api_calls: 100000000 # 100M API calls
 
-  # ML Storage Account
+  # Original ML Storage
   azurerm_storage_account.ml_storage:
-    storage_gb: 3000 # 3 TB of ML datasets
-    monthly_tier_1_requests: 5000000 # Write operations
-    monthly_tier_2_requests: 25000000 # Read operations
-    
-  # Container Instances for inference
+    storage_gb: 10000 # 10 TB
+    monthly_tier_1_requests: 20000000
+    monthly_tier_2_requests: 100000000
+
+  # Premium Storage for research
+  azurerm_storage_account.ml_premium_storage:
+    storage_gb: 100000 # 100 TB premium storage
+    monthly_tier_1_requests: 100000000
+    monthly_tier_2_requests: 500000000
+    monthly_data_transfer_gb: 50000
+
+  # NetApp Files Ultra-performance storage
+  azurerm_netapp_pool.ml_netapp_pool:
+    storage_tb: 100
+    monthly_throughput_mbps: 128000 # Ultra tier throughput
+
+  # Container Instances
   azurerm_container_group.ml_inference:
-    monthly_hrs: 730 # Full uptime
-    
-  # Databricks workspace
+    monthly_hrs: 730
+    cpu_cores: 2
+    memory_gb: 4
+
+  # Original Databricks
   azurerm_databricks_workspace.ml_databricks:
-    monthly_dbu_hours: 2000 # Databricks Unit hours for analytics
+    monthly_dbu_hours: 5000
+
+  # Research Databricks (scaled)
+  azurerm_databricks_workspace.ml_databricks_research:
+    monthly_dbu_hours: 50000 # Extensive analytics workloads
+
+  # Synapse Analytics
+  azurerm_synapse_workspace.ml_synapse:
+    monthly_sql_pool_hours: 730
+    monthly_data_processed_tb: 500
+
+  # Synapse Spark Pool
+  azurerm_synapse_spark_pool.ml_spark_pool:
+    average_nodes: 60 # Average usage
+    monthly_hrs: 650
+    monthly_data_processed_tb: 300
+
+  # Container Registry
+  azurerm_container_registry.ml_acr:
+    storage_gb: 5000 # 5 TB of container images
+    monthly_build_minutes: 50000
+    monthly_webhook_calls: 1000000
+
+  # Managed Disks for staging (20 disks)
+  azurerm_managed_disk.ml_data_disks[*]:
+    storage_gb: 4096
+    monthly_disk_operations: 10000000
+
+  # Log Analytics
+  azurerm_log_analytics_workspace.ml_monitoring:
+    monthly_data_ingested_gb: 10000 # 10 TB of logs
+    monthly_data_retention_gb: 50000

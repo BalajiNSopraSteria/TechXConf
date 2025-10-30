@@ -4,59 +4,148 @@
 # See https://infracost.io/usage-file/ for docs
 version: 0.1
 
+# AI RESEARCH PROJECT - $500K Monthly Budget
+# High-volume AI/ML workload usage patterns for Google Cloud
+
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   google_cloudfunctions_function:
-    request_duration_ms: 350 # Average duration of each request in milliseconds.
-    monthly_function_invocations: 20000000 # Monthly number of function invocations.
-    monthly_outbound_data_gb: 150 # Monthly data transferred from the function out to somewhere else in GB.
+    request_duration_ms: 350
+    monthly_function_invocations: 20000000
+    monthly_outbound_data_gb: 150
 
-# Resource-specific usage for AI/ML workloads
+  # Large TPU Pods v4-128 (10 instances)
+  google_tpu_node.ml_tpu_pod_large[*]:
+    monthly_hrs: 600 # ~20 hours/day for massive model training
+
+  # Medium TPU Pods v3-32 (20 instances)
+  google_tpu_node.ml_tpu_pod_medium[*]:
+    monthly_hrs: 650 # ~21.5 hours/day
+
+  # A100 80GB GPU clusters (40 instances)
+  google_compute_instance.ml_gpu_a100_cluster[*]:
+    operating_system: linux
+    monthly_hrs: 680 # ~22.5 hours/day for intensive training
+
+  # A100 40GB instances (60 instances)
+  google_compute_instance.ml_gpu_a100_standard[*]:
+    operating_system: linux
+    monthly_hrs: 650 # ~21.5 hours/day
+
+  # Persistent staging disks (50 disks)
+  google_compute_disk.ml_staging_disks[*]:
+    monthly_disk_operations: 50000000
+
+# Resource-specific usage
 resource_usage:
-  # Cloud Storage for ML artifacts
+  # Original Cloud Storage
   google_storage_bucket.ml_artifacts:
-    storage_gb: 4000 # 4 TB of ML datasets and models
-    monthly_class_a_operations: 8000000 # Write operations
-    monthly_class_b_operations: 40000000 # Read operations
-    monthly_data_retrieval_gb: 1000
+    storage_gb: 20000 # 20 TB
+    monthly_class_a_operations: 50000000
+    monthly_class_b_operations: 200000000
+    monthly_data_retrieval_gb: 10000
 
-  # GPU Compute Instance (not running 24/7)
+  # Petascale research datasets
+  google_storage_bucket.ml_research_datasets:
+    storage_gb: 1000000 # 1 PB of training data
+    monthly_class_a_operations: 200000000
+    monthly_class_b_operations: 1000000000
+    monthly_data_retrieval_gb: 500000
+    monthly_data_transfer_gb: 200000 # 200 TB egress
+
+  # Model registry archive
+  google_storage_bucket.ml_model_registry:
+    storage_gb: 500000 # 500 TB of models
+    monthly_class_a_operations: 100000000
+    monthly_class_b_operations: 500000000
+    monthly_data_retrieval_gb: 100000
+
+  # Original GPU instance
   google_compute_instance.ml_gpu_instance:
     operating_system: linux
-    monthly_hrs: 450 # ~15 hours per day for training
+    monthly_hrs: 600
 
-  # Cloud TPU for training
+  # Original TPU
   google_tpu_node.ml_tpu:
-    monthly_hrs: 200 # Used periodically for large model training
+    monthly_hrs: 400
 
   # Vertex AI Notebook
   google_notebooks_instance.ml_notebook:
-    monthly_hrs: 730 # Full uptime for development
+    monthly_hrs: 730
 
-  # GKE cluster for inference
+  # Original GKE cluster
   google_container_cluster.ml_gke:
     nodes: 3
-    monthly_hrs: 730 # Full uptime
+    monthly_hrs: 730
 
-  # GPU node pool
+  # Original GPU node pool
   google_container_node_pool.ml_gpu_nodes:
     nodes: 2
-    monthly_hrs: 500 # Scaled during peak inference
+    monthly_hrs: 600
 
-  # Cloud Run for inference
+  # Research GKE cluster (scaled)
+  google_container_cluster.ml_gke_research:
+    nodes: 5
+    monthly_hrs: 730
+
+  # CPU node pool for orchestration
+  google_container_node_pool.ml_gke_cpu_pool:
+    nodes: 50
+    monthly_hrs: 730
+
+  # A100 GPU node pool for GKE
+  google_container_node_pool.ml_gke_gpu_a100_pool:
+    nodes: 30
+    monthly_hrs: 730 # Full uptime for inference
+
+  # Original Cloud Run
   google_cloud_run_service.ml_inference:
-    monthly_requests: 30000000 # 30M inference requests
+    monthly_requests: 100000000 # 100M requests
     request_duration_ms: 500
-    monthly_cpu_hours: 15000
-    monthly_memory_gb_hours: 30000
+    monthly_cpu_hours: 50000
+    monthly_memory_gb_hours: 100000
 
-  # BigQuery for ML analytics
+  # Original BigQuery analytics
   google_bigquery_dataset.ml_analytics:
-    monthly_queries: 1000
-    monthly_queried_data_tb: 5 # 5 TB queried per month
-    storage_tb: 2 # 2 TB stored
+    monthly_queries: 5000
+    monthly_queried_data_tb: 50
+    storage_tb: 10
+
+  # Research BigQuery analytics (scaled)
+  google_bigquery_dataset.ml_research_analytics:
+    monthly_queries: 100000
+    monthly_queried_data_tb: 5000 # 5 PB queried
+    storage_tb: 1000 # 1 PB stored
+    monthly_streaming_inserts: 10000000000 # 10B records
+
+  # BigQuery feature store table
+  google_bigquery_table.ml_feature_store:
+    monthly_queries: 50000
+    monthly_queried_data_tb: 2000
+    storage_tb: 500
+
+  # Vertex AI Endpoints (10 endpoints)
+  google_vertex_ai_endpoint.ml_research_endpoint[*]:
+    monthly_prediction_requests: 100000000 # 100M per endpoint
+    average_request_duration_ms: 300
+
+  # Cloud Composer orchestration
+  google_composer_environment.ml_orchestration:
+    monthly_hrs: 730
+    worker_count: 32
+    monthly_dag_runs: 100000
+
+  # Cloud Filestore shared storage
+  google_filestore_instance.ml_shared_storage:
+    storage_tb: 100
+    monthly_read_gb: 500000
+    monthly_write_gb: 300000
 
   # Artifact Registry
   google_artifact_registry_repository.ml_containers:
-    storage_gb: 400 # Container images storage
-    monthly_egress_data_transfer_gb: 100
+    storage_gb: 10000 # 10 TB of containers
+    monthly_egress_data_transfer_gb: 50000
+
+  # Cloud NAT for egress
+  google_compute_router_nat.ml_nat:
+    monthly_data_processed_gb: 300000 # 300 TB

@@ -4,42 +4,104 @@
 # See https://infracost.io/usage-file/ for docs
 version: 0.1
 
+# AI RESEARCH PROJECT - $100K Monthly Budget
+# High-volume AI/ML workload usage patterns
+
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   aws_lambda_function:
-    monthly_requests: 20000000 # Monthly requests to the Lambda function.
-    request_duration_ms: 350 # Average duration of each request in milliseconds.
+    monthly_requests: 20000000
+    request_duration_ms: 350
+
+  # P4d instances for distributed training (8 instances)
+  aws_instance.ml_gpu_cluster[*]:
+    operating_system: linux
+    reserved_instance_type: none
+    monthly_hrs: 600 # ~20 hours/day for intensive training
+
+  # P3 instances for medium-scale training (12 instances)
+  aws_instance.ml_gpu_medium[*]:
+    operating_system: linux
+    reserved_instance_type: none
+    monthly_hrs: 550 # ~18 hours/day
 
 # Resource-specific usage
 resource_usage:
-  # S3 bucket for ML artifacts
+  # Original ML artifacts bucket
   aws_s3_bucket.ml_artifacts:
-    storage_gb: 5000 # 5 TB of model artifacts and datasets
-    monthly_tier_1_requests: 10000000 # PUT, COPY, POST, LIST requests
-    monthly_tier_2_requests: 50000000 # GET, SELECT requests
-    monthly_select_data_scanned_gb: 1000
-    monthly_select_data_returned_gb: 100
+    storage_gb: 10000 # 10 TB
+    monthly_tier_1_requests: 50000000
+    monthly_tier_2_requests: 200000000
+    monthly_select_data_scanned_gb: 5000
+    monthly_select_data_returned_gb: 500
+
+  # Research datasets bucket (petascale)
+  aws_s3_bucket.ml_research_datasets:
+    storage_gb: 500000 # 500 TB of training datasets
+    monthly_tier_1_requests: 100000000
+    monthly_tier_2_requests: 500000000
+    monthly_select_data_scanned_gb: 50000
+    monthly_select_data_returned_gb: 5000
+    monthly_data_transfer_gb: 100000 # 100 TB monthly transfer
+
+  # Model checkpoints bucket
+  aws_s3_bucket.ml_model_checkpoints:
+    storage_gb: 200000 # 200 TB of model checkpoints
+    monthly_tier_1_requests: 80000000
+    monthly_tier_2_requests: 300000000
+    monthly_versioning_storage_gb: 50000
 
   # EFS for shared ML storage
   aws_efs_file_system.ml_shared_storage:
-    storage_gb: 2000 # 2 TB of shared storage
-    monthly_infrequent_access_storage_gb: 500 # 500 GB in IA storage
+    storage_gb: 5000 # 5 TB
+    monthly_infrequent_access_storage_gb: 1000
 
-  # GPU EC2 instance usage (assuming not 24/7 for cost savings)
+  # FSx for Lustre high-performance storage
+  aws_fsx_lustre_file_system.ml_hpc_storage:
+    storage_gb: 50400 # 50.4 TB
+    monthly_data_processing_gb: 200000 # 200 TB data processing
+
+  # Original GPU instance
   aws_instance.ml_gpu_instance:
     operating_system: linux
     reserved_instance_type: none
-    monthly_hrs: 500 # ~16-17 hours per day for training workloads
+    monthly_hrs: 600
 
   # SageMaker Notebook Instance
   aws_sagemaker_notebook_instance.ml_notebook:
-    monthly_hrs: 730 # Full month usage for development
+    monthly_hrs: 730
 
-  # SageMaker Endpoint for inference
+  # SageMaker Training Job (large-scale distributed)
+  aws_sagemaker_training_job.research_training_1[0]:
+    training_hrs: 500 # Long-running training jobs
+    instance_count: 16
+    data_processed_gb: 100000
+
+  # Research SageMaker Endpoint (scaled up)
+  aws_sagemaker_endpoint.research_endpoint:
+    monthly_inference_requests: 500000000 # 500M requests/month
+    average_request_duration_ms: 200
+
+  # Original endpoint
   aws_sagemaker_endpoint.ml_endpoint:
-    monthly_inference_requests: 50000000 # 50M inference requests per month
+    monthly_inference_requests: 100000000
 
   # ECR storage
   aws_ecr_repository.ml_containers:
-    storage_gb: 500 # Container images storage
+    storage_gb: 2000 # 2 TB of container images
+    monthly_pull_requests: 1000000
 
+  # EBS preprocessing volumes (10 volumes)
+  aws_ebs_volume.ml_preprocessing_storage[*]:
+    storage_gb: 10000
+    monthly_iops: 16000
+
+  # ElastiCache for coordination
+  aws_elasticache_cluster.ml_cache:
+    monthly_hrs: 730
+    cache_node_count: 3
+
+  # CloudWatch Logs
+  aws_cloudwatch_log_group.ml_training_logs:
+    monthly_data_ingested_gb: 5000 # 5 TB of logs
+    monthly_data_scanned_gb: 2000
