@@ -6,6 +6,7 @@ version: 0.1
 
 # AI RESEARCH PROJECT - $250K Monthly Budget
 # High-volume AI/ML workload usage patterns for Azure
+# Updated to reflect VNet networking, NSGs, Azure Firewall, Key Vault, and DDoS Protection
 
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
@@ -26,6 +27,36 @@ resource_type_default_usage:
 
 # Resource-specific usage
 resource_usage:
+  # Azure Firewall for centralized egress filtering
+  azurerm_firewall.ai_research_firewall:
+    monthly_data_processed_gb: 200000 # 200 TB data processed
+
+  # DDoS Protection Standard
+  azurerm_network_ddos_protection_plan.ai_research_ddos:
+    # DDoS Protection has fixed monthly cost
+
+  # Key Vault for secrets and encryption keys
+  azurerm_key_vault.ai_research_kv:
+    monthly_standard_operations: 10000000 # 10M operations
+    monthly_advanced_operations: 1000000 # 1M HSM operations
+
+  # Network Security Groups - data transfer costs
+  azurerm_network_security_group.ml_training_nsg:
+    monthly_rule_processing_gb: 100000 # 100 TB processed
+
+  azurerm_network_security_group.ml_inference_nsg:
+    monthly_rule_processing_gb: 50000 # 50 TB processed
+
+  azurerm_network_security_group.data_nsg:
+    monthly_rule_processing_gb: 80000 # 80 TB processed
+
+  # Network Interfaces for GPU VMs
+  azurerm_network_interface.my_linux_vm_nic:
+    monthly_data_transfer_gb: 5000
+
+  azurerm_network_interface.ml_gpu_vm_nic:
+    monthly_data_transfer_gb: 10000
+
   # Azure Machine Learning Workspace
   azurerm_machine_learning_workspace.ml_workspace:
     monthly_training_hours: 15000 # Extensive training hours
@@ -45,10 +76,11 @@ resource_usage:
     average_nodes: 60 # Average between min (20) and max (100)
     monthly_hrs: 650
 
-  # Original AKS cluster
+  # AKS with VNet integration and network policies
   azurerm_kubernetes_cluster.ml_aks:
     nodes: 2
     monthly_hrs: 730
+    monthly_cluster_management_gb: 5000
 
   # Original GPU node pool
   azurerm_kubernetes_cluster_node_pool.ml_gpu_nodes:
@@ -69,11 +101,12 @@ resource_usage:
   azurerm_cognitive_account.cognitive_services:
     monthly_api_calls: 100000000 # 100M API calls
 
-  # Original ML Storage
+  # ML Storage with VNet integration and encryption
   azurerm_storage_account.ml_storage:
     storage_gb: 10000 # 10 TB
     monthly_tier_1_requests: 20000000
     monthly_tier_2_requests: 100000000
+    monthly_data_transfer_gb: 20000
 
   # Premium Storage for research
   azurerm_storage_account.ml_premium_storage:

@@ -6,12 +6,20 @@ version: 0.1
 
 # AI RESEARCH PROJECT - $100K Monthly Budget
 # High-volume AI/ML workload usage patterns
+# Updated to reflect VPC networking, encryption, and security infrastructure
 
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
   aws_lambda_function:
     monthly_requests: 20000000
     request_duration_ms: 350
+
+  # NAT Gateways (2 instances for high availability)
+  aws_nat_gateway.nat_gw_1:
+    monthly_gb_data_processed: 150000 # 150 TB egress from private subnets
+
+  aws_nat_gateway.nat_gw_2:
+    monthly_gb_data_processed: 150000 # 150 TB egress from private subnets
 
   # P4d instances for distributed training (8 instances)
   aws_instance.ml_gpu_cluster[*]:
@@ -27,7 +35,36 @@ resource_type_default_usage:
 
 # Resource-specific usage
 resource_usage:
-  # Original ML artifacts bucket
+  # VPC Flow Logs
+  aws_flow_log.vpc_flow_log:
+    monthly_logs_gb: 5000 # 5 TB of network flow logs
+
+  # GuardDuty threat detection
+  aws_guardduty_detector.ai_research_guardduty:
+    monthly_cloudtrail_events: 5000000 # 5M CloudTrail events
+    monthly_vpc_flow_log_gb: 5000 # 5 TB VPC flow logs
+    monthly_dns_logs: 2000000 # 2M DNS queries
+
+  # KMS encryption key operations
+  aws_kms_key.ml_data_encryption_key:
+    monthly_requests: 10000000 # 10M encryption/decryption operations
+
+  # VPC Endpoints - Interface endpoints have hourly charges
+  aws_vpc_endpoint.sagemaker_api_endpoint:
+    monthly_data_processed_gb: 50000 # 50 TB through SageMaker endpoint
+
+  aws_vpc_endpoint.ecr_api_endpoint:
+    monthly_data_processed_gb: 10000 # 10 TB ECR API calls
+
+  aws_vpc_endpoint.ecr_dkr_endpoint:
+    monthly_data_processed_gb: 20000 # 20 TB container image pulls
+
+  # EFS for shared ML storage with encryption
+  aws_efs_file_system.ml_shared_storage:
+    storage_gb: 10000 # 10 TB
+    monthly_infrequent_access_storage_gb: 2000
+
+  # Original ML artifacts bucket with KMS encryption
   aws_s3_bucket.ml_artifacts:
     storage_gb: 10000 # 10 TB
     monthly_tier_1_requests: 50000000
@@ -35,7 +72,7 @@ resource_usage:
     monthly_select_data_scanned_gb: 5000
     monthly_select_data_returned_gb: 500
 
-  # Research datasets bucket (petascale)
+  # Research datasets bucket (petascale) with KMS encryption
   aws_s3_bucket.ml_research_datasets:
     storage_gb: 500000 # 500 TB of training datasets
     monthly_tier_1_requests: 100000000
@@ -44,28 +81,35 @@ resource_usage:
     monthly_select_data_returned_gb: 5000
     monthly_data_transfer_gb: 100000 # 100 TB monthly transfer
 
-  # Model checkpoints bucket
+  # Model checkpoints bucket with KMS encryption and versioning
   aws_s3_bucket.ml_model_checkpoints:
     storage_gb: 200000 # 200 TB of model checkpoints
     monthly_tier_1_requests: 80000000
     monthly_tier_2_requests: 300000000
     monthly_versioning_storage_gb: 50000
 
+  # Config bucket for compliance logs
+  aws_s3_bucket.config_bucket:
+    storage_gb: 1000 # 1 TB of compliance logs
+    monthly_tier_1_requests: 1000000
+    monthly_tier_2_requests: 5000000
+
   # EFS for shared ML storage
   aws_efs_file_system.ml_shared_storage:
     storage_gb: 5000 # 5 TB
     monthly_infrequent_access_storage_gb: 1000
 
-  # FSx for Lustre high-performance storage
-  aws_fsx_lustre_file_system.ml_hpc_storage:
-    storage_gb: 50400 # 50.4 TB
-    monthly_data_processing_gb: 200000 # 200 TB data processing
-
-  # Original GPU instance
+  # Original GPU instance with VPC placement
   aws_instance.ml_gpu_instance:
     operating_system: linux
     reserved_instance_type: none
     monthly_hrs: 600
+
+  # Web app instance in private subnet
+  aws_instance.my_web_app:
+    operating_system: linux
+    reserved_instance_type: none
+    monthly_hrs: 730
 
   # SageMaker Notebook Instance
   aws_sagemaker_notebook_instance.ml_notebook:
@@ -96,12 +140,12 @@ resource_usage:
     storage_gb: 10000
     monthly_iops: 16000
 
-  # ElastiCache for coordination
-  aws_elasticache_cluster.ml_cache:
-    monthly_hrs: 730
-    cache_node_count: 3
+  # CloudWatch Logs for VPC Flow Logs and application logs
+  aws_cloudwatch_log_group.vpc_flow_log_group:
+    monthly_data_ingested_gb: 5000 # 5 TB of VPC flow logs
+    monthly_data_scanned_gb: 2000
+    storage_gb: 10000 # 10 TB retention
 
-  # CloudWatch Logs
   aws_cloudwatch_log_group.ml_training_logs:
-    monthly_data_ingested_gb: 5000 # 5 TB of logs
+    monthly_data_ingested_gb: 5000 # 5 TB of training logs
     monthly_data_scanned_gb: 2000

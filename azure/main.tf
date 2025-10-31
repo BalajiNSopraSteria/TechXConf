@@ -1,16 +1,358 @@
 provider "azurerm" {
   skip_provider_registration = true
-  features {}
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy = true
+    }
+  }
+}
+
+# ====================================================================
+# NETWORKING AND SECURITY INFRASTRUCTURE
+# ====================================================================
+
+# Resource Group for AI Research Infrastructure
+resource "azurerm_resource_group" "ai_research_rg" {
+  name     = "ai-research-rg"
+  location = "eastus"
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research"
+  }
+}
+
+# Virtual Network
+resource "azurerm_virtual_network" "ai_research_vnet" {
+  name                = "ai-research-vnet"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+  address_space       = ["10.0.0.0/16"]
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research"
+  }
+}
+
+# Subnets
+resource "azurerm_subnet" "ml_training_subnet" {
+  name                 = "ml-training-subnet"
+  resource_group_name  = azurerm_resource_group.ai_research_rg.name
+  virtual_network_name = azurerm_virtual_network.ai_research_vnet.name
+  address_prefixes     = ["10.0.10.0/24"]
+
+  service_endpoints = [
+    "Microsoft.Storage",
+    "Microsoft.KeyVault",
+    "Microsoft.ContainerRegistry"
+  ]
+}
+
+resource "azurerm_subnet" "ml_inference_subnet" {
+  name                 = "ml-inference-subnet"
+  resource_group_name  = azurerm_resource_group.ai_research_rg.name
+  virtual_network_name = azurerm_virtual_network.ai_research_vnet.name
+  address_prefixes     = ["10.0.20.0/24"]
+
+  service_endpoints = [
+    "Microsoft.Storage",
+    "Microsoft.KeyVault"
+  ]
+}
+
+resource "azurerm_subnet" "data_subnet" {
+  name                 = "data-subnet"
+  resource_group_name  = azurerm_resource_group.ai_research_rg.name
+  virtual_network_name = azurerm_virtual_network.ai_research_vnet.name
+  address_prefixes     = ["10.0.30.0/24"]
+
+  service_endpoints = [
+    "Microsoft.Storage"
+  ]
+}
+
+resource "azurerm_subnet" "aks_subnet" {
+  name                 = "aks-subnet"
+  resource_group_name  = azurerm_resource_group.ai_research_rg.name
+  virtual_network_name = azurerm_virtual_network.ai_research_vnet.name
+  address_prefixes     = ["10.0.40.0/24"]
+}
+
+resource "azurerm_subnet" "firewall_subnet" {
+  name                 = "AzureFirewallSubnet" # Must be named this exactly
+  resource_group_name  = azurerm_resource_group.ai_research_rg.name
+  virtual_network_name = azurerm_virtual_network.ai_research_vnet.name
+  address_prefixes     = ["10.0.50.0/26"]
+}
+
+# Network Security Groups
+resource "azurerm_network_security_group" "ml_training_nsg" {
+  name                = "ml-training-nsg"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  # Ingress Rules
+  security_rule {
+    name                       = "AllowSSHFromBastion"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "22"
+    source_address_prefix      = "10.0.0.0/16"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowHTTPSInternal"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowDistributedTraining"
+    priority                   = 120
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "8000-9000"
+    source_address_prefix      = "10.0.10.0/24"
+    destination_address_prefix = "10.0.10.0/24"
+  }
+
+  security_rule {
+    name                       = "DenyAllInbound"
+    priority                   = 4096
+    direction                  = "Inbound"
+    access                     = "Deny"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  # Egress Rules
+  security_rule {
+    name                       = "AllowHTTPSOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowStorageOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "*"
+    destination_address_prefix = "Storage"
+  }
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+  }
+}
+
+resource "azurerm_network_security_group" "ml_inference_nsg" {
+  name                = "ml-inference-nsg"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  security_rule {
+    name                       = "AllowHTTPSInbound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  security_rule {
+    name                       = "AllowHTTPInbound"
+    priority                   = 110
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "80"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+  }
+}
+
+resource "azurerm_network_security_group" "data_nsg" {
+  name                = "data-nsg"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  security_rule {
+    name                       = "AllowStorageAccess"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "*"
+  }
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+  }
+}
+
+# NSG Associations
+resource "azurerm_subnet_network_security_group_association" "ml_training_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.ml_training_subnet.id
+  network_security_group_id = azurerm_network_security_group.ml_training_nsg.id
+}
+
+resource "azurerm_subnet_network_security_group_association" "ml_inference_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.ml_inference_subnet.id
+  network_security_group_id = azurerm_network_security_group.ml_inference_nsg.id
+}
+
+resource "azurerm_subnet_network_security_group_association" "data_nsg_assoc" {
+  subnet_id                 = azurerm_subnet.data_subnet.id
+  network_security_group_id = azurerm_network_security_group.data_nsg.id
+}
+
+# Azure Firewall Public IP
+resource "azurerm_public_ip" "firewall_pip" {
+  name                = "firewall-public-ip"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+  allocation_method   = "Static"
+  sku                 = "Standard"
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+# Azure Firewall
+resource "azurerm_firewall" "ai_research_firewall" {
+  name                = "ai-research-firewall"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+  sku_name            = "AZFW_VNet"
+  sku_tier            = "Standard"
+
+  ip_configuration {
+    name                 = "firewall-ip-config"
+    subnet_id            = azurerm_subnet.firewall_subnet.id
+    public_ip_address_id = azurerm_public_ip.firewall_pip.id
+  }
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+  }
+}
+
+# ====================================================================
+# SECURITY AND COMPLIANCE INFRASTRUCTURE
+# ====================================================================
+
+# Azure Key Vault
+resource "azurerm_key_vault" "ai_research_kv" {
+  name                        = "ai-research-kv-${substr(md5(azurerm_resource_group.ai_research_rg.id), 0, 8)}"
+  location                    = azurerm_resource_group.ai_research_rg.location
+  resource_group_name         = azurerm_resource_group.ai_research_rg.name
+  enabled_for_disk_encryption = true
+  tenant_id                   = "00000000-0000-0000-0000-000000000000"
+  soft_delete_retention_days  = 90
+  purge_protection_enabled    = true
+  sku_name                    = "premium"
+
+  network_acls {
+    default_action             = "Deny"
+    bypass                     = "AzureServices"
+    virtual_network_subnet_ids = [
+      azurerm_subnet.ml_training_subnet.id,
+      azurerm_subnet.ml_inference_subnet.id
+    ]
+  }
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+    Compliance  = "Required"
+  }
+}
+
+# DDoS Protection Plan
+resource "azurerm_network_ddos_protection_plan" "ai_research_ddos" {
+  name                = "ai-research-ddos-plan"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  tags = {
+    Environment = "production"
+    Purpose     = "AI-Research-Security"
+  }
+}
+
+# ====================================================================
+# ORIGINAL RESOURCES (Updated with Security)
+# ====================================================================
+
+# Network Interface for original VM
+resource "azurerm_network_interface" "my_linux_vm_nic" {
+  name                = "test-nic"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.ml_training_subnet.id
+    private_ip_address_allocation = "Dynamic"
+  }
+
+  tags = {
+    Environment = "production"
+    Service     = "web-app"
+  }
 }
 
 resource "azurerm_linux_virtual_machine" "my_linux_vm" {
-  location            = "eastus"
+  location            = azurerm_resource_group.ai_research_rg.location
   name                = "test"
-  resource_group_name = "test"
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
   admin_username      = "testuser"
   admin_password      = "Testpa5s"
+  disable_password_authentication = false
 
-  size = "Standard_F16s" # <<<<<<<<<< Try changing this to Standard_F16s_v2 to compare the costs
+  size = "Standard_F16s"
 
   tags = {
     Environment = "production"
@@ -19,11 +361,12 @@ resource "azurerm_linux_virtual_machine" "my_linux_vm" {
 
   os_disk {
     caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+    storage_account_type = "Premium_LRS"
+    disk_encryption_set_id = null
   }
 
   network_interface_ids = [
-    "/subscriptions/123/resourceGroups/testrg/providers/Microsoft.Network/networkInterfaces/testnic",
+    azurerm_network_interface.my_linux_vm_nic.id,
   ]
 
   source_image_reference {
@@ -84,10 +427,22 @@ resource "azurerm_machine_learning_workspace" "ml_workspace" {
 }
 
 # GPU-enabled Virtual Machine for deep learning
+resource "azurerm_network_interface" "ml_gpu_vm_nic" {
+  name                = "ml-gpu-vm-nic"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.ml_training_subnet.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
 resource "azurerm_linux_virtual_machine" "ml_gpu_vm" {
-  location            = "eastus"
+  location            = azurerm_resource_group.ai_research_rg.location
   name                = "ml-gpu-vm-nc6"
-  resource_group_name = "test"
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
   admin_username      = "azureuser"
   admin_password      = "P@ssw0rd1234!"
 
@@ -109,7 +464,7 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_vm" {
   }
 
   network_interface_ids = [
-    "/subscriptions/123/resourceGroups/testrg/providers/Microsoft.Network/networkInterfaces/mlnic",
+    azurerm_network_interface.ml_gpu_vm_nic.id,
   ]
 
   source_image_reference {
@@ -123,18 +478,26 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_vm" {
 # Azure Kubernetes Service for ML model serving
 resource "azurerm_kubernetes_cluster" "ml_aks" {
   name                = "ml-aks-cluster"
-  location            = "eastus"
-  resource_group_name = "test"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
   dns_prefix          = "mlaks"
 
   default_node_pool {
-    name       = "default"
-    node_count = 2
-    vm_size    = "Standard_D4s_v3"
+    name           = "default"
+    node_count     = 2
+    vm_size        = "Standard_D4s_v3"
+    vnet_subnet_id = azurerm_subnet.aks_subnet.id
   }
 
   identity {
     type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin     = "azure"
+    network_policy     = "azure"
+    service_cidr       = "10.1.0.0/16"
+    dns_service_ip     = "10.1.0.10"
   }
 
   tags = {
@@ -177,11 +540,23 @@ resource "azurerm_cognitive_account" "cognitive_services" {
 # Azure Storage Account for ML datasets
 resource "azurerm_storage_account" "ml_storage" {
   name                     = "mlstorageprodeast"
-  resource_group_name      = "test"
-  location                 = "eastus"
+  resource_group_name      = azurerm_resource_group.ai_research_rg.name
+  location                 = azurerm_resource_group.ai_research_rg.location
   account_tier             = "Standard"
   account_replication_type = "LRS"
   account_kind             = "StorageV2"
+
+  min_tls_version = "TLS1_2"
+
+  network_rules {
+    default_action             = "Deny"
+    virtual_network_subnet_ids = [azurerm_subnet.data_subnet.id]
+    bypass                     = ["AzureServices"]
+  }
+
+  blob_properties {
+    versioning_enabled = true
+  }
 
   tags = {
     Environment = "production"
@@ -235,11 +610,24 @@ resource "azurerm_databricks_workspace" "ml_databricks" {
 # ====================================================================
 
 # Large-scale GPU VM cluster - ND A100 v4 series
+resource "azurerm_network_interface" "ml_gpu_cluster_a100_nic" {
+  count               = 20
+  name                = "ml-gpu-a100-nic-${count.index + 1}"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.ml_training_subnet.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
 resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_a100" {
   count               = 20
-  location            = "eastus"
+  location            = azurerm_resource_group.ai_research_rg.location
   name                = "ml-gpu-a100-${count.index + 1}"
-  resource_group_name = "test"
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
   admin_username      = "azureuser"
   admin_password      = "P@ssw0rd1234!"
 
@@ -262,7 +650,7 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_a100" {
   }
 
   network_interface_ids = [
-    "/subscriptions/123/resourceGroups/testrg/providers/Microsoft.Network/networkInterfaces/mlnic-a100-${count.index + 1}",
+    azurerm_network_interface.ml_gpu_cluster_a100_nic[count.index].id,
   ]
 
   source_image_reference {
@@ -274,11 +662,24 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_a100" {
 }
 
 # Medium GPU VMs - NC A100 v4 series
+resource "azurerm_network_interface" "ml_gpu_cluster_nc_nic" {
+  count               = 30
+  name                = "ml-gpu-nc-nic-${count.index + 1}"
+  location            = azurerm_resource_group.ai_research_rg.location
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
+
+  ip_configuration {
+    name                          = "internal"
+    subnet_id                     = azurerm_subnet.ml_training_subnet.id
+    private_ip_address_allocation = "Dynamic"
+  }
+}
+
 resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_nc" {
   count               = 30
-  location            = "eastus"
+  location            = azurerm_resource_group.ai_research_rg.location
   name                = "ml-gpu-nc-${count.index + 1}"
-  resource_group_name = "test"
+  resource_group_name = azurerm_resource_group.ai_research_rg.name
   admin_username      = "azureuser"
   admin_password      = "P@ssw0rd1234!"
 
@@ -300,7 +701,7 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_nc" {
   }
 
   network_interface_ids = [
-    "/subscriptions/123/resourceGroups/testrg/providers/Microsoft.Network/networkInterfaces/mlnic-nc-${count.index + 1}",
+    azurerm_network_interface.ml_gpu_cluster_nc_nic[count.index].id,
   ]
 
   source_image_reference {
@@ -314,7 +715,7 @@ resource "azurerm_linux_virtual_machine" "ml_gpu_cluster_nc" {
 # Azure Machine Learning Compute Clusters
 resource "azurerm_machine_learning_compute_cluster" "aml_gpu_cluster" {
   name                          = "aml-gpu-compute-cluster"
-  location                      = "eastus"
+  location                      = azurerm_resource_group.ai_research_rg.location
   machine_learning_workspace_id = azurerm_machine_learning_workspace.ml_workspace.id
   vm_priority                   = "Dedicated"
   vm_size                       = "Standard_NC24ads_A100_v4"

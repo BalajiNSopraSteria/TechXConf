@@ -6,6 +6,7 @@ version: 0.1
 
 # AI RESEARCH PROJECT - $500K Monthly Budget
 # High-volume AI/ML workload usage patterns for Google Cloud
+# Updated to reflect VPC networking, Cloud KMS, Cloud Armor, VPC Service Controls
 
 # The following usage values apply to each resource of the given type, which is useful when you want to define defaults.
 resource_type_default_usage:
@@ -32,20 +33,38 @@ resource_type_default_usage:
     operating_system: linux
     monthly_hrs: 650 # ~21.5 hours/day
 
-  # Persistent staging disks (50 disks)
+  # Persistent staging disks (50 disks) with KMS encryption
   google_compute_disk.ml_staging_disks[*]:
     monthly_disk_operations: 50000000
 
 # Resource-specific usage
 resource_usage:
-  # Original Cloud Storage
+  # Cloud NAT for private subnet egress
+  google_compute_router_nat.ai_research_nat:
+    monthly_data_processed_gb: 300000 # 300 TB egress
+
+  # VPC Flow Logs
+  google_compute_subnetwork.ml_training_subnet:
+    monthly_flow_logs_gb: 5000 # 5 TB of flow logs
+
+  # Cloud KMS encryption operations
+  google_kms_crypto_key.ml_data_key:
+    monthly_encrypt_decrypt_requests: 15000000 # 15M operations
+
+  # Cloud Armor security policy
+  google_compute_security_policy.ai_research_policy:
+    monthly_requests: 500000000 # 500M requests evaluated
+
+  # VPC Service Controls - no usage-based costs, perimeter is configured
+
+  # Cloud Storage with KMS encryption and lifecycle policies
   google_storage_bucket.ml_artifacts:
     storage_gb: 20000 # 20 TB
     monthly_class_a_operations: 50000000
     monthly_class_b_operations: 200000000
     monthly_data_retrieval_gb: 10000
 
-  # Petascale research datasets
+  # Petascale research datasets with KMS encryption and public access prevention
   google_storage_bucket.ml_research_datasets:
     storage_gb: 1000000 # 1 PB of training data
     monthly_class_a_operations: 200000000
@@ -53,19 +72,24 @@ resource_usage:
     monthly_data_retrieval_gb: 500000
     monthly_data_transfer_gb: 200000 # 200 TB egress
 
-  # Model registry archive
+  # Model registry archive with KMS encryption
   google_storage_bucket.ml_model_registry:
     storage_gb: 500000 # 500 TB of models
     monthly_class_a_operations: 100000000
     monthly_class_b_operations: 500000000
     monthly_data_retrieval_gb: 100000
 
-  # Original GPU instance
+  # Original GPU instance in VPC with KMS encryption
   google_compute_instance.ml_gpu_instance:
     operating_system: linux
     monthly_hrs: 600
 
-  # Original TPU
+  # Base instance in VPC with KMS encryption
+  google_compute_instance.my_instance:
+    operating_system: linux
+    monthly_hrs: 730
+
+  # Original TPU in VPC
   google_tpu_node.ml_tpu:
     monthly_hrs: 400
 
@@ -73,20 +97,22 @@ resource_usage:
   google_notebooks_instance.ml_notebook:
     monthly_hrs: 730
 
-  # Original GKE cluster
+  # GKE clusters with VPC-native networking, private nodes, and KMS encryption
   google_container_cluster.ml_gke:
     nodes: 3
     monthly_hrs: 730
+    monthly_cluster_management_gb: 5000
 
   # Original GPU node pool
   google_container_node_pool.ml_gpu_nodes:
     nodes: 2
     monthly_hrs: 600
 
-  # Research GKE cluster (scaled)
+  # Research GKE cluster with private cluster config
   google_container_cluster.ml_gke_research:
     nodes: 5
     monthly_hrs: 730
+    monthly_cluster_management_gb: 10000
 
   # CPU node pool for orchestration
   google_container_node_pool.ml_gke_cpu_pool:
@@ -105,13 +131,13 @@ resource_usage:
     monthly_cpu_hours: 50000
     monthly_memory_gb_hours: 100000
 
-  # Original BigQuery analytics
+  # BigQuery analytics with KMS encryption
   google_bigquery_dataset.ml_analytics:
     monthly_queries: 5000
     monthly_queried_data_tb: 50
     storage_tb: 10
 
-  # Research BigQuery analytics (scaled)
+  # Research BigQuery analytics with KMS encryption
   google_bigquery_dataset.ml_research_analytics:
     monthly_queries: 100000
     monthly_queried_data_tb: 5000 # 5 PB queried
@@ -135,7 +161,7 @@ resource_usage:
     worker_count: 32
     monthly_dag_runs: 100000
 
-  # Cloud Filestore shared storage
+  # Filestore shared storage with KMS encryption
   google_filestore_instance.ml_shared_storage:
     storage_tb: 100
     monthly_read_gb: 500000
@@ -146,6 +172,7 @@ resource_usage:
     storage_gb: 10000 # 10 TB of containers
     monthly_egress_data_transfer_gb: 50000
 
-  # Cloud NAT for egress
-  google_compute_router_nat.ml_nat:
-    monthly_data_processed_gb: 300000 # 300 TB
+  # Cloud Logging for audit trails
+  google_logging_project_sink.ml_research_logs:
+    monthly_logs_ingested_gb: 10000 # 10 TB of logs
+    monthly_logs_stored_gb: 50000 # 50 TB retention
